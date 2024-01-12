@@ -1,0 +1,759 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"workspaceName": {
+			"type": "string",
+			"metadata": "Workspace name",
+			"defaultValue": "synapse6clgwj2"
+		},
+		"synapse6clgwj2-WorkspaceDefaultSqlServer_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'synapse6clgwj2-WorkspaceDefaultSqlServer'",
+			"defaultValue": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=tcp:synapse6clgwj2.sql.azuresynapse.net,1433;Initial Catalog=@{linkedService().DBName}"
+		},
+		"Products_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://raw.githubusercontent.com/MicrosoftLearning/dp-203-azure-data-engineer/master/Allfiles/labs/01/adventureworks/products.csv"
+		},
+		"synapse6clgwj2-WorkspaceDefaultStorage_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://datalake6clgwj2.dfs.core.windows.net"
+		}
+	},
+	"variables": {
+		"workspaceId": "[concat('Microsoft.Synapse/workspaces/', parameters('workspaceName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('workspaceName'), '/Copy products')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Copy products data",
+				"activities": [
+					{
+						"name": "Copy_mqi",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [
+							{
+								"name": "Destination",
+								"value": "files/product_data/products.csv"
+							}
+						],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"storeSettings": {
+									"type": "HttpReadSettings",
+									"requestMethod": "GET"
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings",
+									"skipLineCount": 0
+								}
+							},
+							"sink": {
+								"type": "DelimitedTextSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "DelimitedTextWriteSettings",
+									"quoteAllText": true,
+									"fileExtension": ".txt"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "SourceDataset_mqi",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DestinationDataset_mqi",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2024-01-11T15:10:52Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/SourceDataset_mqi')]",
+				"[concat(variables('workspaceId'), '/datasets/DestinationDataset_mqi')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DestinationDataset_mqi')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "synapse6clgwj2-WorkspaceDefaultStorage",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": "products.csv",
+						"folderPath": "product_data",
+						"fileSystem": "files"
+					},
+					"columnDelimiter": ",",
+					"rowDelimiter": "\n",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/synapse6clgwj2-WorkspaceDefaultStorage')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SourceDataset_mqi')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "Products",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "HttpServerLocation"
+					},
+					"columnDelimiter": ",",
+					"rowDelimiter": "\n",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": [
+					{
+						"name": "ProductID",
+						"type": "String"
+					},
+					{
+						"name": "ProductName",
+						"type": "String"
+					},
+					{
+						"name": "Category",
+						"type": "String"
+					},
+					{
+						"name": "ListPrice",
+						"type": "String"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/Products')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Products')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Product list via HTTP",
+				"annotations": [],
+				"type": "HttpServer",
+				"typeProperties": {
+					"url": "[parameters('Products_properties_typeProperties_url')]",
+					"enableServerCertificateValidation": true,
+					"authenticationType": "Anonymous"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/synapse6clgwj2-WorkspaceDefaultSqlServer')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"parameters": {
+					"DBName": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlDW",
+				"typeProperties": {
+					"connectionString": "[parameters('synapse6clgwj2-WorkspaceDefaultSqlServer_connectionString')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/synapse6clgwj2-WorkspaceDefaultStorage')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('synapse6clgwj2-WorkspaceDefaultStorage_properties_typeProperties_url')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/AutoResolveIntegrationRuntime')]",
+			"type": "Microsoft.Synapse/workspaces/integrationRuntimes",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "Managed",
+				"typeProperties": {
+					"computeProperties": {
+						"location": "AutoResolve",
+						"dataFlowProperties": {
+							"computeType": "General",
+							"coreCount": 8,
+							"timeToLive": 0
+						}
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/WorkspaceSystemIdentity')]",
+			"type": "Microsoft.Synapse/workspaces/credentials",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "ManagedIdentity",
+				"typeProperties": {}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Count Products by Category')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "-- This is auto-generated code\nSELECT\n    Category, COUNT(*) AS ProductCount\nFROM\n    OPENROWSET(\n        BULK 'https://datalake6clgwj2.dfs.core.windows.net/files/product_data/products.csv',\n        FORMAT = 'CSV',\n        PARSER_VERSION = '2.0',\n        HEADER_ROW = TRUE\n    ) AS [result]\nGROUP BY Category\nORDER BY ProductCount;",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"databaseName": "master",
+						"poolName": "Built-in"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Explore products')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "spark6clgwj2",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 2,
+					"runAsWorkspaceSystemIdentity": false,
+					"conf": {
+						"spark.dynamicAllocation.enabled": "false",
+						"spark.dynamicAllocation.minExecutors": "2",
+						"spark.dynamicAllocation.maxExecutors": "2",
+						"spark.autotune.trackingId": "20e962e7-d8a9-4750-b716-6c1f99f213d1"
+					}
+				},
+				"metadata": {
+					"saveOutput": true,
+					"synapse_widget": {
+						"version": "0.1",
+						"state": {
+							"a1dc0b0a-83a3-47a9-96af-29859abf0a33": {
+								"type": "Synapse.DataFrame",
+								"sync_state": {
+									"table": {
+										"rows": [
+											{
+												"0": "771",
+												"1": "Mountain-100 Silver, 38",
+												"2": "Mountain Bikes",
+												"3": "3399.9900"
+											},
+											{
+												"0": "772",
+												"1": "Mountain-100 Silver, 42",
+												"2": "Mountain Bikes",
+												"3": "3399.9900"
+											},
+											{
+												"0": "773",
+												"1": "Mountain-100 Silver, 44",
+												"2": "Mountain Bikes",
+												"3": "3399.9900"
+											},
+											{
+												"0": "774",
+												"1": "Mountain-100 Silver, 48",
+												"2": "Mountain Bikes",
+												"3": "3399.9900"
+											},
+											{
+												"0": "775",
+												"1": "Mountain-100 Black, 38",
+												"2": "Mountain Bikes",
+												"3": "3374.9900"
+											},
+											{
+												"0": "776",
+												"1": "Mountain-100 Black, 42",
+												"2": "Mountain Bikes",
+												"3": "3374.9900"
+											},
+											{
+												"0": "777",
+												"1": "Mountain-100 Black, 44",
+												"2": "Mountain Bikes",
+												"3": "3374.9900"
+											},
+											{
+												"0": "778",
+												"1": "Mountain-100 Black, 48",
+												"2": "Mountain Bikes",
+												"3": "3374.9900"
+											},
+											{
+												"0": "779",
+												"1": "Mountain-200 Silver, 38",
+												"2": "Mountain Bikes",
+												"3": "2319.9900"
+											},
+											{
+												"0": "780",
+												"1": "Mountain-200 Silver, 42",
+												"2": "Mountain Bikes",
+												"3": "2319.9900"
+											}
+										],
+										"schema": [
+											{
+												"key": "0",
+												"name": "ProductID",
+												"type": "string"
+											},
+											{
+												"key": "1",
+												"name": "ProductName",
+												"type": "string"
+											},
+											{
+												"key": "2",
+												"name": "Category",
+												"type": "string"
+											},
+											{
+												"key": "3",
+												"name": "ListPrice",
+												"type": "string"
+											}
+										],
+										"truncated": false
+									},
+									"isSummary": false,
+									"language": "scala"
+								},
+								"persist_state": {
+									"view": {
+										"type": "details",
+										"chartOptions": {
+											"chartType": "bar",
+											"aggregationType": "count",
+											"categoryFieldKeys": [
+												"0"
+											],
+											"seriesFieldKeys": [
+												"0"
+											],
+											"isStacked": false
+										}
+									}
+								}
+							},
+							"99933242-d344-4f35-9dd0-5e2c77f31786": {
+								"type": "Synapse.DataFrame",
+								"sync_state": {
+									"table": {
+										"rows": [
+											{
+												"0": "Headsets",
+												"1": "3"
+											},
+											{
+												"0": "Wheels",
+												"1": "14"
+											},
+											{
+												"0": "Bottom Brackets",
+												"1": "3"
+											},
+											{
+												"0": "Touring Frames",
+												"1": "18"
+											},
+											{
+												"0": "Mountain Bikes",
+												"1": "32"
+											},
+											{
+												"0": "Pedals",
+												"1": "7"
+											},
+											{
+												"0": "Derailleurs",
+												"1": "2"
+											},
+											{
+												"0": "Chains",
+												"1": "1"
+											},
+											{
+												"0": "Pumps",
+												"1": "2"
+											},
+											{
+												"0": "Hydration Packs",
+												"1": "1"
+											},
+											{
+												"0": "Road Bikes",
+												"1": "43"
+											},
+											{
+												"0": "Bottles and Cages",
+												"1": "3"
+											},
+											{
+												"0": "Road Frames",
+												"1": "33"
+											},
+											{
+												"0": "Forks",
+												"1": "3"
+											},
+											{
+												"0": "Vests",
+												"1": "3"
+											},
+											{
+												"0": "Brakes",
+												"1": "2"
+											},
+											{
+												"0": "Helmets",
+												"1": "3"
+											},
+											{
+												"0": "Saddles",
+												"1": "9"
+											},
+											{
+												"0": "Tights",
+												"1": "3"
+											},
+											{
+												"0": "Jerseys",
+												"1": "8"
+											},
+											{
+												"0": "Gloves",
+												"1": "6"
+											},
+											{
+												"0": "Panniers",
+												"1": "1"
+											},
+											{
+												"0": "Touring Bikes",
+												"1": "22"
+											},
+											{
+												"0": "Bike Racks",
+												"1": "1"
+											},
+											{
+												"0": "Fenders",
+												"1": "1"
+											},
+											{
+												"0": "Caps",
+												"1": "1"
+											},
+											{
+												"0": "Lights",
+												"1": "3"
+											},
+											{
+												"0": "Cranksets",
+												"1": "3"
+											},
+											{
+												"0": "Shorts",
+												"1": "7"
+											},
+											{
+												"0": "Locks",
+												"1": "1"
+											},
+											{
+												"0": "Bike Stands",
+												"1": "1"
+											},
+											{
+												"0": "Bib-Shorts",
+												"1": "3"
+											},
+											{
+												"0": "Handlebars",
+												"1": "8"
+											},
+											{
+												"0": "Mountain Frames",
+												"1": "28"
+											},
+											{
+												"0": "Tires and Tubes",
+												"1": "11"
+											},
+											{
+												"0": "Cleaners",
+												"1": "1"
+											},
+											{
+												"0": "Socks",
+												"1": "4"
+											}
+										],
+										"schema": [
+											{
+												"key": "0",
+												"name": "Category",
+												"type": "string"
+											},
+											{
+												"key": "1",
+												"name": "count",
+												"type": "bigint"
+											}
+										],
+										"truncated": false
+									},
+									"isSummary": false,
+									"language": "scala"
+								},
+								"persist_state": {
+									"view": {
+										"type": "details",
+										"chartOptions": {
+											"chartType": "bar",
+											"aggregationType": "sum",
+											"categoryFieldKeys": [
+												"0"
+											],
+											"seriesFieldKeys": [
+												"1"
+											],
+											"isStacked": false
+										}
+									}
+								}
+							}
+						}
+					},
+					"enableDebugMode": false,
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "Synapse PySpark"
+					},
+					"language_info": {
+						"name": "python"
+					},
+					"a365ComputeOptions": {
+						"id": "/subscriptions/af827c45-9ec4-49d2-8d0a-ef39bac5d96f/resourceGroups/dp203-6clgwj2/providers/Microsoft.Synapse/workspaces/synapse6clgwj2/bigDataPools/spark6clgwj2",
+						"name": "spark6clgwj2",
+						"type": "Spark",
+						"endpoint": "https://synapse6clgwj2.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/spark6clgwj2",
+						"auth": {
+							"type": "AAD",
+							"authResource": "https://dev.azuresynapse.net",
+							"authHeader": null
+						},
+						"sparkVersion": "3.1",
+						"nodeCount": 3,
+						"cores": 4,
+						"memory": 28,
+						"extraHeader": null
+					},
+					"sessionKeepAliveTimeout": 30
+				},
+				"cells": [
+					{
+						"cell_type": "code",
+						"metadata": {
+							"microsoft": {
+								"language": "python"
+							},
+							"collapsed": false
+						},
+						"source": [
+							"%%pyspark\r\n",
+							"df = spark.read.load('abfss://files@datalake6clgwj2.dfs.core.windows.net/product_data/products.csv', format='csv'\r\n",
+							"## If header exists uncomment line below\r\n",
+							", header=True\r\n",
+							")\r\n",
+							"display(df.limit(10))"
+						],
+						"outputs": [],
+						"execution_count": 2
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							},
+							"collapsed": false
+						},
+						"source": [
+							"df_counts = df.groupby(df.Category).count()\n",
+							"display(df_counts)"
+						],
+						"outputs": [],
+						"execution_count": 4
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/spark6clgwj2')]",
+			"type": "Microsoft.Synapse/workspaces/bigDataPools",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"autoPause": {
+					"enabled": true,
+					"delayInMinutes": 15
+				},
+				"autoScale": {
+					"enabled": true,
+					"maxNodeCount": 4,
+					"minNodeCount": 3
+				},
+				"nodeCount": 0,
+				"nodeSize": "Small",
+				"nodeSizeFamily": "MemoryOptimized",
+				"sparkVersion": "3.1",
+				"isComputeIsolationEnabled": false,
+				"sessionLevelPackagesEnabled": false,
+				"annotations": []
+			},
+			"dependsOn": [],
+			"location": "southeastasia"
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/sql6clgwj2')]",
+			"type": "Microsoft.Synapse/workspaces/sqlPools",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"collation": "SQL_Latin1_General_CP1_CI_AS",
+				"maxSizeBytes": 263882790666240,
+				"annotations": []
+			},
+			"dependsOn": [],
+			"location": "southeastasia"
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Aggregate product sales')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": " SELECT d.CalendarYear, d.MonthNumberOfYear, d.EnglishMonthName,\n        p.EnglishProductName AS Product, SUM(o.OrderQuantity) AS UnitsSold\n FROM dbo.FactInternetSales AS o\n JOIN dbo.DimDate AS d ON o.OrderDateKey = d.DateKey\n JOIN dbo.DimProduct AS p ON o.ProductKey = p.ProductKey\n GROUP BY d.CalendarYear, d.MonthNumberOfYear, d.EnglishMonthName, p.EnglishProductName\n ORDER BY d.MonthNumberOfYear\n",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"databaseName": "sql6clgwj2",
+						"poolName": "sql6clgwj2"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		}
+	]
+}
